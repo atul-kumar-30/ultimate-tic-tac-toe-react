@@ -1,0 +1,14 @@
+# ============================================================================
+# IMPORTANT NOTE FOR DEVELOPERS:
+# This project is a modern Node.js/React web application.
+# ALL core game dependencies are managed inside `package.json`.
+# Please use `npm install` to install dependencies for the main project.
+# ============================================================================
+
+# This requirements.txt file is provided STRICTLY for legacy support.
+# If you decide to bring over or run any old Python utility scripts 
+# (such as the original fetch_countries.py web scraper from the vanilla 
+# version of this project), you will need the following Python libraries:
+
+requests==2.31.0
+beautifulsoup4==4.12.3
