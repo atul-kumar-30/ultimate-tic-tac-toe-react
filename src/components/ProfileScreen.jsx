@@ -20,9 +20,10 @@ function getRank(mmr) {
     return '🥉 Bronze 3';
 }
 
-export default function ProfileScreen({ playerName, onClose }) {
+export default function ProfileScreen({ playerName, currentUserName, onClose }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [friendship, setFriendship] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -36,10 +37,29 @@ export default function ProfileScreen({ playerName, onClose }) {
       }
 
       // 2. Try fetching from Global Supabase Leaderboard
-      const { data, error } = await supabase.from('profiles').select('*').eq('name', playerName).single();
+      let searchName = playerName;
+      let query = supabase.from('profiles').select('*');
+      if (playerName && playerName.includes('#')) {
+          const [n, t] = playerName.split('#');
+          searchName = n.trim();
+          query = query.eq('name', searchName).eq('player_tag', '#' + t.trim());
+      } else {
+          query = query.eq('name', searchName);
+      }
+      
+      const { data, error } = await query.single();
+
+      // Fetch friendship status if viewing someone else
+      if (data && currentUserName && searchName !== currentUserName) {
+         const { data: fData } = await supabase.from('friendships')
+            .select('*')
+            .or(`and(sender.eq.${currentUserName},receiver.eq.${data.name}),and(sender.eq.${data.name},receiver.eq.${currentUserName})`)
+            .maybeSingle();
+         if(fData) setFriendship(fData);
+      }
       
       // If we got valid global data, take whichever has higher MMR (to ensure we don't accidentally downgrade if local is out of sync)
-      if (data && (!localProfilesRaw[playerName] || data.mmr > localProfilesRaw[playerName].mmr)) {
+      if (data && (!localProfilesRaw[searchName] || data.mmr > localProfilesRaw[searchName].mmr)) {
         pData = data;
       }
 
@@ -50,13 +70,34 @@ export default function ProfileScreen({ playerName, onClose }) {
     if (playerName) {
         load();
     }
-  }, [playerName]);
+  }, [playerName, currentUserName]);
+
+  const handleAddFriend = async () => {
+      const targetName = profile ? profile.name : playerName;
+      if(!targetName) return;
+      
+      const { data, error } = await supabase.from('friendships').insert([{
+          sender: currentUserName,
+          receiver: targetName,
+          status: 'pending'
+      }]).select().single();
+      
+      if(!error && data) {
+          setFriendship(data);
+          alert('Friend request sent!');
+      } else {
+          alert('Error sending request. You might already have a pending request.');
+      }
+  };
 
   return (
     <div className="glass-panel" style={{ width: '400px', maxWidth: '95vw', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
       <div style={{ fontSize: '3rem', marginBottom: '10px' }}>👤</div>
-      <h1 className="game-title" style={{ fontSize: '1.8rem', marginBottom: '5px' }}>{playerName}</h1>
+      <h1 className="game-title" style={{ fontSize: '1.8rem', margin: '0' }}>{profile ? profile.name : (playerName ? playerName.split('#')[0] : '')}</h1>
+      {profile?.player_tag && (
+          <div style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>{profile.player_tag}</div>
+      )}
       
       {loading ? (
         <div style={{ margin: '20px', color: 'var(--text-secondary)' }}>Loading stats...</div>
@@ -88,6 +129,20 @@ export default function ProfileScreen({ playerName, onClose }) {
                   Win Rate: {profile.wins + profile.losses === 0 ? '0' : Math.round((profile.wins / (profile.wins + profile.losses)) * 100)}%
                </div>
             </div>
+
+            {((profile ? profile.name : playerName) !== currentUserName) && (
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                  {(!friendship || (friendship.status !== 'pending' && friendship.status !== 'accepted')) && (
+                      <button className="btn-secondary" style={{ flex: 1, margin: 0 }} onClick={handleAddFriend}>Add Friend</button>
+                  )}
+                  {friendship?.status === 'pending' && (
+                      <button className="btn-secondary" style={{ flex: 1, margin: 0, opacity: 0.7 }} disabled>Pending</button>
+                  )}
+                  {(!friendship || friendship.status === 'accepted') && (
+                      <button className="btn-secondary" style={{ flex: 1, margin: 0, borderColor: 'var(--color-x)', color: 'var(--color-x)' }} onClick={() => alert('Challenges coming soon!')}>Challenge</button>
+                  )}
+              </div>
+            )}
         </div>
       ) : (
           <div style={{ margin: '20px', color: 'var(--text-secondary)' }}>No stats found.</div>

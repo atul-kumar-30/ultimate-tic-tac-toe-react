@@ -6,11 +6,12 @@ import GameScreen from './components/GameScreen';
 import LeaderboardScreen from './components/LeaderboardScreen';
 import RulesScreen from './components/RulesScreen';
 import ProfileScreen from './components/ProfileScreen';
+import FriendsScreen from './components/FriendsScreen';
 import './index.css';
 
 function App() {
   const [session, setSession] = useState(null);
-  const [screen, setScreen] = useState('auth'); // 'auth', 'setup', 'game', 'leaderboard', 'profile'
+  const [screen, setScreen] = useState('auth'); // 'auth', 'setup', 'game', 'leaderboard', 'profile', 'friends'
   const [viewingProfile, setViewingProfile] = useState(null);
   const [config, setConfig] = useState({
     mode: 'pvp',
@@ -40,12 +41,26 @@ function App() {
         if (inputName && inputName.trim()) {
           name = inputName.trim();
           await supabase.auth.updateUser({ data: { name: name } });
-          // Ensure they have a profile
-          await supabase.from('profiles').upsert([{ name: name, mmr: 1000, wins: 0, losses: 0, draws: 0 }], { onConflict: 'name' });
         }
       }
 
       if (name) {
+        // Fetch or create profile to ensure they have a player_tag
+        const { data: profile } = await supabase.from('profiles').select('*').eq('name', name).single();
+        
+        let tag = profile?.player_tag;
+        if (!profile || !tag) {
+           tag = '#' + Math.floor(1000 + Math.random() * 9000).toString();
+           await supabase.from('profiles').upsert([{ 
+               name: name, 
+               player_tag: tag,
+               mmr: profile?.mmr || 1000, 
+               wins: profile?.wins || 0, 
+               losses: profile?.losses || 0, 
+               draws: profile?.draws || 0 
+           }], { onConflict: 'name' });
+        }
+
         setUserName(name);
         setConfig(prev => ({ ...prev, playerXName: name }));
       }
@@ -83,6 +98,7 @@ function App() {
           onStartGame={() => setScreen('game')}
           onViewLeaderboard={() => setScreen('leaderboard')}
           onViewRules={() => setScreen('rules')}
+          onViewFriends={() => setScreen('friends')}
           onViewProfile={(name) => {
             setViewingProfile(name);
             setScreen('profile');
@@ -106,7 +122,13 @@ function App() {
         <RulesScreen onClose={() => setScreen('setup')} />
       )}
       {screen === 'profile' && (
-        <ProfileScreen playerName={viewingProfile} onClose={() => setScreen('setup')} />
+        <ProfileScreen playerName={viewingProfile} currentUserName={userName} onClose={() => setScreen('setup')} />
+      )}
+      {screen === 'friends' && (
+        <FriendsScreen currentUserName={userName} onClose={() => setScreen('setup')} onViewProfile={(name) => {
+            setViewingProfile(name);
+            setScreen('profile');
+        }} />
       )}
     </>
   );

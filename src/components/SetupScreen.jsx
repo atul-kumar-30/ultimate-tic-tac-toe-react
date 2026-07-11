@@ -1,20 +1,38 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function SetupScreen({ 
   onLogout,
   onStartGame,
   onViewLeaderboard,
   onViewProfile,
+  onViewFriends,
   config,
   setConfig,
   userName,
   onDeleteAccount,
   onViewRules
 }) {
+  const [searchQuery, setSearchQuery] = useState('');
+
   return (
     <div className="glass-panel setup-screen" style={{ position: 'relative' }}>
       <h1>Tic-Tac-Toe</h1>
       
+      <div className="setup-group">
+        <label>Find Player</label>
+        <div style={{ display: 'flex', gap: '5px' }}>
+          <input 
+            type="text" 
+            placeholder="Search Name or Name#Tag"
+            value={searchQuery} 
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{ flex: 1, margin: 0 }}
+            onKeyDown={e => { if (e.key === 'Enter' && searchQuery.trim()) onViewProfile(searchQuery.trim()); }}
+          />
+          <button className="btn-secondary" style={{ padding: '0 15px', fontSize: '1.2rem', margin: 0 }} onClick={() => { if(searchQuery.trim()) onViewProfile(searchQuery.trim()); }}>🔍</button>
+        </div>
+      </div>
+
       <div className="setup-group">
         <label>Game Mode</label>
         <div className="select-wrapper">
@@ -93,8 +111,9 @@ export default function SetupScreen({
       <button className="btn-primary" onClick={onStartGame}>Start Game</button>
       
       <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
-        <button className="btn-secondary" onClick={onViewLeaderboard} style={{ flex: 1 }}>🏆 Leaderboard</button>
-        <button className="btn-secondary" onClick={onViewRules} style={{ flex: 1 }}>📖 Rules</button>
+        <button className="btn-secondary" onClick={onViewLeaderboard} style={{ flex: 1, padding: '10px 5px' }}>🏆 Leaderboard</button>
+        <button className="btn-secondary" onClick={onViewRules} style={{ flex: 1, padding: '10px 5px' }}>📖 Rules</button>
+        <button className="btn-secondary" onClick={onViewFriends} style={{ flex: 1, padding: '10px 5px' }}>👥 Friends</button>
       </div>
       
       <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
