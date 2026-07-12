@@ -74,25 +74,57 @@ export default function GameScreen({ config, onBack }) {
   const [scoreX, setScoreX] = useState({ mmr: 1000, wins: 0, losses: 0, draws: 0 });
   const [scoreO, setScoreO] = useState({ mmr: 1000, wins: 0, losses: 0, draws: 0 });
   
+  const [globalVerifiedX, setGlobalVerifiedX] = useState(false);
+  const [globalVerifiedO, setGlobalVerifiedO] = useState(false);
+  
   const timerRef = useRef(null);
   const winningConditions = useRef(generateWinningConditions(config.gridSize));
 
   useEffect(() => {
     async function loadProfiles() {
-      let dX = { mmr: 1000, wins: 0, losses: 0, draws: 0, name: config.playerXName };
-      let dO = { mmr: 1000, wins: 0, losses: 0, draws: 0, name: config.playerOName };
+      const getBaseName = (fullName) => fullName.split('#')[0].trim();
+      const getTag = (fullName) => fullName.includes('#') ? '#' + fullName.split('#')[1].trim() : null;
+
+      let baseNameX = getBaseName(config.playerXName);
+      let baseNameO = getBaseName(config.playerOName);
+
+      let dX = { mmr: 1000, wins: 0, losses: 0, draws: 0, name: baseNameX };
+      let dO = { mmr: 1000, wins: 0, losses: 0, draws: 0, name: baseNameO };
 
       // 1. Try to load from local storage first (Friendly Leaderboard)
       const localProfiles = JSON.parse(localStorage.getItem('localProfiles') || '{}');
-      if (localProfiles[config.playerXName]) dX = localProfiles[config.playerXName];
-      if (localProfiles[config.playerOName]) dO = localProfiles[config.playerOName];
+      if (localProfiles[baseNameX]) dX = localProfiles[baseNameX];
+      if (localProfiles[baseNameO]) dO = localProfiles[baseNameO];
 
-      // 2. Try Supabase (Global Leaderboard) if available, but let local persist if global fails
+      // 2. Try Supabase (Global Leaderboard) if available and tag provided
+      const fetchGlobalProfile = async (fullName) => {
+          const tag = getTag(fullName);
+          if (!tag) return null; // Local guest player
+          const baseName = getBaseName(fullName);
+          const { data } = await supabase.from('profiles').select('*').eq('name', baseName).eq('player_tag', tag).single();
+          return data;
+      };
+
       try {
-        const { data: fetchX } = await supabase.from('profiles').select('*').eq('name', config.playerXName).single();
-        if (fetchX) dX = fetchX;
-        const { data: fetchO } = await supabase.from('profiles').select('*').eq('name', config.playerOName).single();
-        if (fetchO) dO = fetchO;
+        const fetchX = await fetchGlobalProfile(config.playerXName);
+        if (fetchX) { 
+           if (dX.mmr > fetchX.mmr) {
+               dX = { ...dX, player_tag: fetchX.player_tag, id: fetchX.id };
+           } else {
+               dX = fetchX; 
+           }
+           setGlobalVerifiedX(true); 
+        }
+        
+        const fetchO = await fetchGlobalProfile(config.playerOName);
+        if (fetchO) { 
+           if (dO.mmr > fetchO.mmr) {
+               dO = { ...dO, player_tag: fetchO.player_tag, id: fetchO.id };
+           } else {
+               dO = fetchO; 
+           }
+           setGlobalVerifiedO(true); 
+        }
       } catch (e) {
         // Ignore supabase errors for local play
       }
@@ -103,12 +135,14 @@ export default function GameScreen({ config, onBack }) {
     loadProfiles();
   }, [config]);
 
-  const updateProfiles = async (winnerName, loserName, isDraw) => {
-    let w = winnerName === config.playerXName ? { ...scoreX } : { ...scoreO };
-    let l = loserName === config.playerOName ? { ...scoreO } : { ...scoreX };
+  const updateProfiles = async (winnerFullName, loserFullName, isDraw) => {
+    const getBaseName = (fullName) => fullName.split('#')[0].trim();
+    
+    let w = winnerFullName === config.playerXName ? { ...scoreX } : { ...scoreO };
+    let l = loserFullName === config.playerOName ? { ...scoreO } : { ...scoreX };
 
-    w.name = winnerName;
-    l.name = loserName;
+    w.name = getBaseName(winnerFullName);
+    l.name = getBaseName(loserFullName);
 
     let winPoints = 30, losePoints = 10;
     if (config.gridSize === 4) { winPoints = 40; losePoints = 20; }
@@ -121,14 +155,14 @@ export default function GameScreen({ config, onBack }) {
     } else {
       w.mmr += winPoints; w.wins++;
       l.mmr = Math.max(1000, l.mmr - losePoints); l.losses++;
-      if (winnerName === config.playerXName) {
+      if (winnerFullName === config.playerXName) {
         setSessionWinsX(s => s + 1);
       } else {
         setSessionWinsO(s => s + 1);
       }
     }
 
-    if (winnerName === config.playerXName) { setScoreX(w); setScoreO(l); }
+    if (winnerFullName === config.playerXName) { setScoreX(w); setScoreO(l); }
     else { setScoreO(w); setScoreX(l); }
 
     // Save to Friendly Local Leaderboard
@@ -137,12 +171,17 @@ export default function GameScreen({ config, onBack }) {
     localProfiles[l.name] = l;
     localStorage.setItem('localProfiles', JSON.stringify(localProfiles));
 
-    // Attempt to save to Global Leaderboard
-    try {
-      await supabase.from('profiles').upsert(w, { onConflict: 'name' });
-      await supabase.from('profiles').upsert(l, { onConflict: 'name' });
-    } catch (err) {
-      // It's okay if it fails, local storage works!
+    // Attempt to save to Global Leaderboard only if globally verified!
+    const promises = [];
+    if ((winnerFullName === config.playerXName && globalVerifiedX) || (winnerFullName === config.playerOName && globalVerifiedO)) {
+       promises.push(supabase.from('profiles').upsert(w, { onConflict: 'name' }));
+    }
+    if ((loserFullName === config.playerXName && globalVerifiedX) || (loserFullName === config.playerOName && globalVerifiedO)) {
+       promises.push(supabase.from('profiles').upsert(l, { onConflict: 'name' }));
+    }
+
+    if (promises.length > 0) {
+        Promise.allSettled(promises);
     }
   };
 
@@ -174,7 +213,7 @@ export default function GameScreen({ config, onBack }) {
     const winnerName = winner === 'x' ? config.playerXName : config.playerOName;
     const loserName = winner === 'x' ? config.playerOName : config.playerXName;
     updateProfiles(winnerName, loserName, false);
-    setResult({ winner, message: `${winnerName} Wins on Time!` });
+    setResult({ winner, message: `${winnerName.split('#')[0]} Wins on Time!` });
   };
 
   const handleCellClick = (index) => {
@@ -201,7 +240,7 @@ export default function GameScreen({ config, onBack }) {
         const winnerName = winResult.winner === 'x' ? config.playerXName : config.playerOName;
         const loserName = winResult.winner === 'x' ? config.playerOName : config.playerXName;
         updateProfiles(winnerName, loserName, false);
-        setResult({ winner: winResult.winner, message: `${winnerName} Wins!` });
+        setResult({ winner: winResult.winner, message: `${winnerName.split('#')[0]} Wins!` });
       }
     } else {
       setCurrentPlayer(player === 'x' ? 'o' : 'x');
@@ -235,7 +274,7 @@ export default function GameScreen({ config, onBack }) {
         <button className="btn-secondary btn-icon" onClick={onBack}>&lt;</button>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--text-secondary)' }}>
-            {gameActive ? `${currentPlayer === 'x' ? config.playerXName : config.playerOName}'s Turn` : 'Game Over'}
+            {gameActive ? `${(currentPlayer === 'x' ? config.playerXName : config.playerOName).split('#')[0]}'s Turn` : 'Game Over'}
           </h2>
         </div>
         <button className="btn-secondary btn-icon" onClick={restartGame}>↻</button>
@@ -252,7 +291,7 @@ export default function GameScreen({ config, onBack }) {
 
       <div className="scoreboard">
         <div className="score-card x-score">
-          <div className="player-name">{config.playerXName} (X)</div>
+          <div className="player-name">{config.playerXName.split('#')[0]} (X)</div>
           <div className="score-val" style={{ fontSize: '1.8rem', lineHeight: '1.2' }}>{sessionWinsX} <span style={{ fontSize: '0.9rem' }}>Wins</span></div>
           <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', marginTop: '2px' }}>{scoreX.mmr} RP</div>
         </div>
@@ -261,7 +300,7 @@ export default function GameScreen({ config, onBack }) {
           <div className="score-val" style={{ fontSize: '1.8rem', lineHeight: '1.2' }}>{sessionDraws}</div>
         </div>
         <div className="score-card o-score">
-          <div className="player-name">{config.playerOName} (O)</div>
+          <div className="player-name">{config.playerOName.split('#')[0]} (O)</div>
           <div className="score-val" style={{ fontSize: '1.8rem', lineHeight: '1.2' }}>{sessionWinsO} <span style={{ fontSize: '0.9rem' }}>Wins</span></div>
           <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', marginTop: '2px' }}>{scoreO.mmr} RP</div>
         </div>

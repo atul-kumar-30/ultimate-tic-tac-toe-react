@@ -22,6 +22,7 @@ function App() {
     blitzMode: false
   });
   const [userName, setUserName] = useState('');
+  const [previousScreen, setPreviousScreen] = useState('setup');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -51,18 +52,22 @@ function App() {
         let tag = profile?.player_tag;
         if (!profile || !tag) {
            tag = '#' + Math.floor(1000 + Math.random() * 9000).toString();
+           const localProfilesRaw = JSON.parse(localStorage.getItem('localProfiles') || '{}');
+           const localStats = localProfilesRaw[name];
+           
            await supabase.from('profiles').upsert([{ 
                name: name, 
                player_tag: tag,
-               mmr: profile?.mmr || 1000, 
-               wins: profile?.wins || 0, 
-               losses: profile?.losses || 0, 
-               draws: profile?.draws || 0 
+               mmr: profile?.mmr || localStats?.mmr || 1000, 
+               wins: profile?.wins || localStats?.wins || 0, 
+               losses: profile?.losses || localStats?.losses || 0, 
+               draws: profile?.draws || localStats?.draws || 0 
            }], { onConflict: 'name' });
         }
 
-        setUserName(name);
-        setConfig(prev => ({ ...prev, playerXName: name }));
+        const fullName = name + tag;
+        setUserName(fullName);
+        setConfig(prev => ({ ...prev, playerXName: fullName }));
       }
       setScreen('setup');
     }
@@ -78,7 +83,8 @@ function App() {
   const handleDeleteAccount = async () => {
     if (window.confirm("Are you sure you want to delete your account? This will remove your leaderboard stats and log you out. This action cannot be undone.")) {
       if (userName) {
-        await supabase.from('profiles').delete().eq('name', userName);
+        const baseName = userName.split('#')[0];
+        await supabase.from('profiles').delete().eq('name', baseName);
       }
       await supabase.auth.signOut();
       setSession(null);
@@ -101,6 +107,7 @@ function App() {
           onViewFriends={() => setScreen('friends')}
           onViewProfile={(name) => {
             setViewingProfile(name);
+            setPreviousScreen('setup');
             setScreen('profile');
           }}
           config={config}
@@ -116,17 +123,34 @@ function App() {
         />
       )}
       {screen === 'leaderboard' && (
-        <LeaderboardScreen onClose={() => setScreen('setup')} />
+        <LeaderboardScreen 
+          onClose={() => setScreen('setup')} 
+          onViewProfile={(name) => {
+            setViewingProfile(name);
+            setPreviousScreen('leaderboard');
+            setScreen('profile');
+          }}
+        />
       )}
       {screen === 'rules' && (
         <RulesScreen onClose={() => setScreen('setup')} />
       )}
       {screen === 'profile' && (
-        <ProfileScreen playerName={viewingProfile} currentUserName={userName} onClose={() => setScreen('setup')} />
+        <ProfileScreen 
+          playerName={viewingProfile} 
+          currentUserName={userName} 
+          currentUserEmail={session?.email} 
+          onClose={() => setScreen(previousScreen)} 
+          onChallenge={(challengeName) => {
+            setConfig(prev => ({ ...prev, playerOName: challengeName, mode: 'pvp' }));
+            setScreen('setup');
+          }}
+        />
       )}
       {screen === 'friends' && (
         <FriendsScreen currentUserName={userName} onClose={() => setScreen('setup')} onViewProfile={(name) => {
             setViewingProfile(name);
+            setPreviousScreen('friends');
             setScreen('profile');
         }} />
       )}

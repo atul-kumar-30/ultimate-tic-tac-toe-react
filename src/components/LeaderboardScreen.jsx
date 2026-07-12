@@ -21,10 +21,11 @@ function getRank(mmr) {
     return '🥉 Bronze 3';
 }
 
-export default function LeaderboardScreen({ onClose }) {
+export default function LeaderboardScreen({ onClose, onViewProfile }) {
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [activeTab, setActiveTab] = useState('overall'); // 'overall', 'official', 'friendly'
 
   useEffect(() => {
     async function load() {
@@ -54,15 +55,30 @@ export default function LeaderboardScreen({ onClose }) {
   }, []);
 
   return (
-    <div className="glass-panel" style={{ width: '450px', maxWidth: '95vw', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 100 }}>
+    <div className="glass-panel" style={{ width: '450px', maxWidth: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', zIndex: 100 }}>
       <h1 className="game-title">Leaderboard</h1>
+      
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+        <button className={activeTab === 'overall' ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, padding: '8px', fontSize: '0.9rem', margin: 0 }} onClick={() => setActiveTab('overall')}>Overall</button>
+        <button className={activeTab === 'official' ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, padding: '8px', fontSize: '0.9rem', margin: 0 }} onClick={() => setActiveTab('official')}>Official</button>
+        <button className={activeTab === 'friendly' ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, padding: '8px', fontSize: '0.9rem', margin: 0 }} onClick={() => setActiveTab('friendly')}>Friendly</button>
+      </div>
+
       <div className="leaderboard-list">
         {loading ? (
           <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Loading...</div>
-        ) : profiles.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No ranked players yet. Play a game to get started!</div>
-        ) : (
-          profiles.map(p => {
+        ) : (() => {
+          const filteredProfiles = profiles.filter(p => {
+             if (activeTab === 'official') return !!p.player_tag;
+             if (activeTab === 'friendly') return !p.player_tag;
+             return true;
+          });
+
+          if (filteredProfiles.length === 0) {
+            return <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>No players found in this category.</div>;
+          }
+
+          return filteredProfiles.map((p, index) => {
             const isCountryName = p.country && p.country.length > 2; 
             // In vanilla we saved name, e.g. "United States" or "US United States".
             // If they signed up via React, it's just "United States".
@@ -74,20 +90,40 @@ export default function LeaderboardScreen({ onClose }) {
                 // simple mapping for the ones we have, or just rely on the name
             }
             return (
-              <div key={p.id} className="leaderboard-item">
+              <div key={p.id || index} className="leaderboard-item">
                 <div className="lb-rank">{getRank(p.mmr).split(' ')[0]}</div>
                 <div className="lb-name">
-                  {p.name} <span style={{ fontSize: '0.9rem' }}>{p.country}</span>
+                  {p.name}{p.player_tag && <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>{p.player_tag}</span>} <span style={{ fontSize: '0.9rem' }}>{p.country}</span>
                   {' '}
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     ({p.wins}W - {p.losses}L)
                   </span>
                 </div>
-                <div className="lb-mmr">{p.mmr}</div>
+                <div className="lb-mmr" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                     {p.mmr}
+                     {p.sessionPoints !== undefined && (
+                         <span style={{ fontSize: '0.8rem', color: p.sessionPoints >= 0 ? '#22c55e' : '#ef4444' }}>
+                             {p.sessionPoints > 0 ? '+' : ''}{p.sessionPoints}
+                         </span>
+                     )}
+                  </div>
+                  <button 
+                    className="btn-secondary" 
+                    style={{ padding: '4px 8px', margin: 0, fontSize: '0.9rem' }}
+                    onClick={() => {
+                      const fullName = p.player_tag ? p.name + p.player_tag : p.name;
+                      if (onViewProfile) onViewProfile(fullName);
+                    }}
+                    title="View Profile"
+                  >
+                    👤
+                  </button>
+                </div>
               </div>
             );
-          })
-        )}
+          });
+        })()}
       </div>
       <button className="btn-primary" onClick={onClose} style={{ marginTop: '20px' }}>Close</button>
     </div>

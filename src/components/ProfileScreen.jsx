@@ -20,7 +20,7 @@ function getRank(mmr) {
     return '🥉 Bronze 3';
 }
 
-export default function ProfileScreen({ playerName, currentUserName, onClose }) {
+export default function ProfileScreen({ playerName, currentUserName, currentUserEmail, onClose, onChallenge }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [friendship, setFriendship] = useState(null);
@@ -30,19 +30,24 @@ export default function ProfileScreen({ playerName, currentUserName, onClose }) 
       // Initialize with default stats
       let pData = { name: playerName, mmr: 1000, wins: 0, losses: 0, draws: 0 };
 
-      // 1. Try to load from Friendly Local Leaderboard first
-      const localProfilesRaw = JSON.parse(localStorage.getItem('localProfiles') || '{}');
-      if (localProfilesRaw[playerName]) {
-        pData = localProfilesRaw[playerName];
-      }
-
-      // 2. Try fetching from Global Supabase Leaderboard
       let searchName = playerName;
-      let query = supabase.from('profiles').select('*');
+      let searchTag = '';
       if (playerName && playerName.includes('#')) {
           const [n, t] = playerName.split('#');
           searchName = n.trim();
-          query = query.eq('name', searchName).eq('player_tag', '#' + t.trim());
+          searchTag = '#' + t.trim();
+      }
+
+      // 1. Try to load from Friendly Local Leaderboard first
+      const localProfilesRaw = JSON.parse(localStorage.getItem('localProfiles') || '{}');
+      if (localProfilesRaw[searchName]) {
+        pData = localProfilesRaw[searchName];
+      }
+
+      // 2. Try fetching from Global Supabase Leaderboard
+      let query = supabase.from('profiles').select('*');
+      if (searchTag) {
+          query = query.eq('name', searchName).eq('player_tag', searchTag);
       } else {
           query = query.eq('name', searchName);
       }
@@ -59,8 +64,12 @@ export default function ProfileScreen({ playerName, currentUserName, onClose }) 
       }
       
       // If we got valid global data, take whichever has higher MMR (to ensure we don't accidentally downgrade if local is out of sync)
-      if (data && (!localProfilesRaw[searchName] || data.mmr > localProfilesRaw[searchName].mmr)) {
-        pData = data;
+      if (data) {
+        if (!localProfilesRaw[searchName] || data.mmr > localProfilesRaw[searchName].mmr) {
+          pData = data;
+        } else {
+          pData = { ...localProfilesRaw[searchName], player_tag: data.player_tag };
+        }
       }
 
       setProfile(pData);
@@ -91,12 +100,25 @@ export default function ProfileScreen({ playerName, currentUserName, onClose }) 
   };
 
   return (
-    <div className="glass-panel" style={{ width: '400px', maxWidth: '95vw', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div className="glass-panel" style={{ width: '400px', maxWidth: '95vw', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
       <div style={{ fontSize: '3rem', marginBottom: '10px' }}>👤</div>
       <h1 className="game-title" style={{ fontSize: '1.8rem', margin: '0' }}>{profile ? profile.name : (playerName ? playerName.split('#')[0] : '')}</h1>
       {profile?.player_tag && (
           <div style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>{profile.player_tag}</div>
+      )}
+      
+      {/* PRIVATE SECTION - Only visible to the owner */}
+      {((profile ? (profile.name + (profile.player_tag || '')) : playerName) === currentUserName || (profile ? profile.name : playerName) === currentUserName) && currentUserEmail && (
+          <div style={{ fontSize: '0.9rem', color: '#38bdf8', marginBottom: '10px', backgroundColor: 'rgba(56, 189, 248, 0.1)', padding: '5px 15px', borderRadius: '15px' }}>
+              ✉️ {currentUserEmail} (Private)
+          </div>
+      )}
+      
+      {profile?.created_at && (
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>
+              Joined: {new Date(profile.created_at).toLocaleDateString()}
+          </div>
       )}
       
       {loading ? (
@@ -130,7 +152,7 @@ export default function ProfileScreen({ playerName, currentUserName, onClose }) 
                </div>
             </div>
 
-            {((profile ? profile.name : playerName) !== currentUserName) && (
+            {((profile ? (profile.name + (profile.player_tag || '')) : playerName) !== currentUserName && (profile ? profile.name : playerName) !== currentUserName) && (
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                   {(!friendship || (friendship.status !== 'pending' && friendship.status !== 'accepted')) && (
                       <button className="btn-secondary" style={{ flex: 1, margin: 0 }} onClick={handleAddFriend}>Add Friend</button>
@@ -139,7 +161,16 @@ export default function ProfileScreen({ playerName, currentUserName, onClose }) 
                       <button className="btn-secondary" style={{ flex: 1, margin: 0, opacity: 0.7 }} disabled>Pending</button>
                   )}
                   {(!friendship || friendship.status === 'accepted') && (
-                      <button className="btn-secondary" style={{ flex: 1, margin: 0, borderColor: 'var(--color-x)', color: 'var(--color-x)' }} onClick={() => alert('Challenges coming soon!')}>Challenge</button>
+                      <button 
+                          className="btn-secondary" 
+                          style={{ flex: 1, margin: 0, borderColor: 'var(--color-x)', color: 'var(--color-x)' }} 
+                          onClick={() => {
+                              const fullName = profile ? (profile.name + (profile.player_tag || '')) : playerName;
+                              if (onChallenge) onChallenge(fullName);
+                          }}
+                      >
+                          Let's Play
+                      </button>
                   )}
               </div>
             )}

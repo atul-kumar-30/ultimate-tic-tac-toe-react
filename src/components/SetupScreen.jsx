@@ -18,6 +18,18 @@ export default function SetupScreen({
     <div className="glass-panel setup-screen" style={{ position: 'relative' }}>
       <h1>Tic-Tac-Toe</h1>
       
+      {userName && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '25px', marginTop: '-15px' }}>
+            <button 
+               className="btn-secondary" 
+               style={{ borderRadius: '20px', padding: '5px 15px', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--glass-border)' }} 
+               onClick={() => onViewProfile(userName)}
+            >
+               <span>👤</span> My Profile: {userName.split('#')[0]}
+            </button>
+        </div>
+      )}
+      
       <div className="setup-group">
         <label>Find Player</label>
         <div style={{ display: 'flex', gap: '5px' }}>
@@ -88,6 +100,7 @@ export default function SetupScreen({
           <div style={{ display: 'flex', gap: '5px' }}>
             <input 
               type="text" 
+              placeholder="Enter Name or Name#Tag for Ranked"
               value={config.playerOName} 
               onChange={e => setConfig({...config, playerOName: e.target.value})}
               style={{ flex: 1, margin: 0 }}
