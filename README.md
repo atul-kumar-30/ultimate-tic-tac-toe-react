@@ -6,11 +6,12 @@ A beautifully modern, fully-featured, and highly competitive Tic-Tac-Toe web app
 
 - **🌐 Global Leaderboards & Local Play:** Play casually against a friend on your local machine using the **Friendly Local Leaderboard** (which securely saves to your browser's local storage), or log in to sync your MMR with the **Global Supabase Database**!
 - **👥 Friends System & Unique Tags:** Every player gets a unique `#Tag` (like `Player#1234`). Use the search bar to find friends, view their profiles, send friend requests, and manage your friends list!
-- **📊 All-Time Profile Stats:** Click the `👤` icon next to any player's name to instantly view their complete career stats (Total Wins, Losses, Draws, and Win Rate) pulled from local or global records.
+- **📊 Player Profiles & Privacy:** View all-time career stats (Wins, Losses, Draws, Win Rate) and join dates for any player. Your own profile securely hides private info (like your email address) from public view!
+- **⚔️ Quick Match (Let's Play):** Instantly challenge any player directly from the Leaderboard using the "Let's Play" shortcut to seamlessly set up a local match against their official stats.
 - **🏆 Ranked MMR System:** Everyone starts at 1000 RP (Bronze III) and can climb the competitive ladder all the way up to Terminator (2200+ RP).
+- **🤖 Advanced AI Engine:** Play PvE against multiple difficulty levels, including an "Impossible" AI powered by the Minimax algorithm.
 - **⚡ Blitz Mode:** Only have 5 seconds to make a move. Think fast or automatically lose the game!
 - **📏 Dynamic Grids:** Play on standard 3x3, or challenge yourself to match 4-in-a-row on expanded 4x4 and 5x5 grids.
-- **🎵 Custom Audio:** Satisfying synthesized "pop" sound effects on every move, generated natively using the Web Audio API.
 - **🎨 Premium UI:** Custom glassmorphism design, vibrant gradients, fluid animations, and a sleek dark mode interface.
 
 ---
