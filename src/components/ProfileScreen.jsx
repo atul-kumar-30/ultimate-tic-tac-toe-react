@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import ReactCountryFlag from 'react-country-flag';
 import { supabase } from '../lib/supabase';
-
+import { getCountryCode } from '../lib/countries';
 function getRank(mmr) {
     if (mmr >= 2200) return '👑 Terminator';
     if (mmr >= 2100) return '💎 Diamond 1';
@@ -82,7 +83,7 @@ export default function ProfileScreen({ playerName, currentUserName, currentUser
   }, [playerName, currentUserName]);
 
   const handleAddFriend = async () => {
-      const targetName = profile ? profile.name : playerName;
+      const targetName = profile ? (profile.name + (profile.player_tag || '')) : playerName;
       if(!targetName) return;
       
       const { data, error } = await supabase.from('friendships').insert([{
@@ -102,7 +103,15 @@ export default function ProfileScreen({ playerName, currentUserName, currentUser
   return (
     <div className="glass-panel" style={{ width: '400px', maxWidth: '95vw', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
-      <div style={{ fontSize: '3rem', marginBottom: '10px' }}>👤</div>
+      <div style={{ fontSize: '3rem', marginBottom: '10px' }}>
+          {profile?.country ? (
+              getCountryCode(profile.country) ? (
+                 <ReactCountryFlag countryCode={getCountryCode(profile.country)} svg style={{ width: '1em', height: '1em', borderRadius: '10px', boxShadow: '0 4px 10px rgba(0,0,0,0.5)' }} title={profile.country} />
+              ) : (
+                 <span style={{ fontSize: '1.5rem' }}>🌍 {profile.country}</span>
+              )
+          ) : '👤'}
+      </div>
       <h1 className="game-title" style={{ fontSize: '1.8rem', margin: '0' }}>{profile ? profile.name : (playerName ? playerName.split('#')[0] : '')}</h1>
       {profile?.player_tag && (
           <div style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>{profile.player_tag}</div>

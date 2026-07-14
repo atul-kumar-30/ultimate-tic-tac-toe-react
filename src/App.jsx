@@ -50,19 +50,28 @@ function App() {
         const { data: profile } = await supabase.from('profiles').select('*').eq('name', name).single();
         
         let tag = profile?.player_tag;
-        if (!profile || !tag) {
-           tag = '#' + Math.floor(1000 + Math.random() * 9000).toString();
+        if (!profile || !tag || (user.user_metadata?.country && !profile?.country)) {
+           tag = tag || '#' + Math.floor(1000 + Math.random() * 9000).toString();
            const localProfilesRaw = JSON.parse(localStorage.getItem('localProfiles') || '{}');
            const localStats = localProfilesRaw[name];
            
-           await supabase.from('profiles').upsert([{ 
+           const upsertData = { 
                name: name, 
                player_tag: tag,
                mmr: profile?.mmr || localStats?.mmr || 1000, 
                wins: profile?.wins || localStats?.wins || 0, 
                losses: profile?.losses || localStats?.losses || 0, 
                draws: profile?.draws || localStats?.draws || 0 
-           }], { onConflict: 'name' });
+           };
+
+           // Only add country if the column exists in the schema to avoid errors, 
+           // but since we want to sync it, we include it. If it fails, they need to add the column.
+           if (user.user_metadata?.country) {
+               upsertData.country = user.user_metadata.country;
+           }
+
+           const { error: upsertError } = await supabase.from('profiles').upsert([upsertData], { onConflict: 'name' });
+           if (upsertError) console.error("Upsert profile error:", upsertError);
         }
 
         const fullName = name + tag;

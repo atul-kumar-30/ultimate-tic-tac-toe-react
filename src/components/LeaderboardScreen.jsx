@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ReactCountryFlag from 'react-country-flag';
 import { supabase } from '../lib/supabase';
+import { getCountryCode } from '../lib/countries';
 
 function getRank(mmr) {
     if (mmr >= 2200) return '👑 Terminator';
@@ -79,21 +80,19 @@ export default function LeaderboardScreen({ onClose, onViewProfile }) {
           }
 
           return filteredProfiles.map((p, index) => {
-            const isCountryName = p.country && p.country.length > 2; 
-            // In vanilla we saved name, e.g. "United States" or "US United States".
-            // If they signed up via React, it's just "United States".
-            // Let's just render the country name for now if we can't extract the code.
-            // Actually, in React, we saved `country.value` which is "United States". 
-            // We should ideally find the code to render the flag.
-            let code = '';
-            if (p.country) {
-                // simple mapping for the ones we have, or just rely on the name
-            }
+            const code = getCountryCode(p.country);
             return (
               <div key={p.id || index} className="leaderboard-item">
+                <div style={{ width: '25px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold', textAlign: 'right', paddingRight: '5px' }}>{index + 1}.</div>
                 <div className="lb-rank">{getRank(p.mmr).split(' ')[0]}</div>
                 <div className="lb-name">
-                  {p.name}{p.player_tag && <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>{p.player_tag}</span>} <span style={{ fontSize: '0.9rem' }}>{p.country}</span>
+                  {p.name}
+                  {p.player_tag && <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>{p.player_tag}</span>}
+                  {p.country && (
+                      <span style={{ marginLeft: '6px' }} title={p.country}>
+                          {code ? <ReactCountryFlag countryCode={code} svg style={{ width: '1.2em', height: '1.2em', borderRadius: '2px' }} /> : <span style={{ fontSize: '0.9rem' }}>{p.country}</span>}
+                      </span>
+                  )}
                   {' '}
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     ({p.wins}W - {p.losses}L)
