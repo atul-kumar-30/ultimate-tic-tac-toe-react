@@ -12,6 +12,7 @@ import './index.css';
 function App() {
   const [session, setSession] = useState(null);
   const [screen, setScreen] = useState('auth'); // 'auth', 'setup', 'game', 'leaderboard', 'profile', 'friends'
+  const [activeInvite, setActiveInvite] = useState(null);
   const [viewingProfile, setViewingProfile] = useState(null);
   const [config, setConfig] = useState({
     mode: 'pvp',
@@ -19,7 +20,9 @@ function App() {
     playerXName: 'Player X',
     playerOName: 'Player O',
     gridSize: 3,
-    blitzMode: false
+    blitzMode: false,
+    isOnline: false,
+    roomId: null
   });
   const [userName, setUserName] = useState('');
   const [previousScreen, setPreviousScreen] = useState('setup');
@@ -29,6 +32,82 @@ function App() {
       handleAuthSuccess(session?.user);
     });
   }, []);
+
+  useEffect(() => {
+    if (!userName) return;
+
+    const channel = supabase.channel(`user-${userName}`);
+    channel.on('broadcast', { event: 'invite' }, ({ payload }) => {
+      setActiveInvite(payload);
+    });
+    channel.on('broadcast', { event: 'accepted' }, ({ payload }) => {
+      setConfig(prev => ({ 
+        ...prev, 
+        playerXName: userName,
+        playerOName: payload.receiver, 
+        mode: 'pvp', 
+        isOnline: true, 
+        roomId: payload.id 
+      }));
+      setScreen('game');
+    });
+    channel.subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userName]);
+
+  const handleAcceptInvite = async () => {
+    if (!activeInvite) return;
+    await supabase.from('game_invites').update({ status: 'accepted' }).eq('id', activeInvite.id);
+    
+    const senderChannel = supabase.channel(`user-${activeInvite.sender}`);
+    senderChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+         senderChannel.send({ type: 'broadcast', event: 'accepted', payload: activeInvite });
+         supabase.removeChannel(senderChannel);
+      }
+    });
+
+    setConfig(prev => ({ 
+        ...prev, 
+        playerXName: activeInvite.sender,
+        playerOName: userName,
+        mode: 'pvp', 
+        isOnline: true, 
+        roomId: activeInvite.id 
+    }));
+    setActiveInvite(null);
+    setScreen('game');
+  };
+
+  const handleDeclineInvite = async () => {
+    if (!activeInvite) return;
+    await supabase.from('game_invites').update({ status: 'declined' }).eq('id', activeInvite.id);
+    setActiveInvite(null);
+  };
+
+  const handleSendInvite = async (challengeName) => {
+    const { data, error } = await supabase.from('game_invites').insert([{
+      sender: userName,
+      receiver: challengeName,
+      status: 'pending'
+    }]).select().single();
+
+    if (data && !error) {
+       alert(`Invite sent to ${challengeName.split('#')[0]}! Waiting for them to accept...`);
+       const receiverChan = supabase.channel(`user-${challengeName}`);
+       receiverChan.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+             receiverChan.send({ type: 'broadcast', event: 'invite', payload: data });
+             supabase.removeChannel(receiverChan);
+          }
+       });
+    } else {
+       alert("Failed to send invite.");
+    }
+  };
 
   const handleAuthSuccess = async (user) => {
     if (user) {
@@ -105,6 +184,22 @@ function App() {
   return (
     <>
       <div className="bg-animated"></div>
+
+      {activeInvite && (
+        <div style={{
+          position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--glass-bg)', padding: '20px', borderRadius: '15px',
+          border: '1px solid var(--btn-primary)', zIndex: 1000, boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+          textAlign: 'center', backdropFilter: 'blur(20px)'
+        }}>
+           <h3 style={{ marginBottom: '10px' }}>🎮 Game Invite!</h3>
+           <p style={{ marginBottom: '15px' }}><strong>{activeInvite.sender.split('#')[0]}</strong> has challenged you!</p>
+           <div style={{ display: 'flex', gap: '10px' }}>
+              <button className="btn-primary" style={{ margin: 0, padding: '8px 15px' }} onClick={handleAcceptInvite}>Accept</button>
+              <button className="btn-secondary" style={{ margin: 0, padding: '8px 15px', color: '#ff4444' }} onClick={handleDeclineInvite}>Decline</button>
+           </div>
+        </div>
+      )}
       
       {screen === 'auth' && <AuthScreen onAuthSuccess={handleAuthSuccess} />}
       {screen === 'setup' && (
@@ -128,7 +223,11 @@ function App() {
       {screen === 'game' && (
         <GameScreen 
           config={config}
-          onBack={() => setScreen('setup')}
+          userName={userName}
+          onBack={() => {
+            setConfig(prev => ({ ...prev, isOnline: false, roomId: null }));
+            setScreen('setup');
+          }}
         />
       )}
       {screen === 'leaderboard' && (
@@ -151,17 +250,27 @@ function App() {
           currentUserEmail={session?.email} 
           onClose={() => setScreen(previousScreen)} 
           onChallenge={(challengeName) => {
-            setConfig(prev => ({ ...prev, playerOName: challengeName, mode: 'pvp' }));
+            setConfig(prev => ({ ...prev, playerOName: challengeName, mode: 'pvp', isOnline: false }));
             setScreen('setup');
           }}
+          onSendInvite={handleSendInvite}
         />
       )}
       {screen === 'friends' && (
-        <FriendsScreen currentUserName={userName} onClose={() => setScreen('setup')} onViewProfile={(name) => {
+        <FriendsScreen 
+          currentUserName={userName} 
+          onClose={() => setScreen('setup')} 
+          onViewProfile={(name) => {
             setViewingProfile(name);
             setPreviousScreen('friends');
             setScreen('profile');
-        }} />
+          }} 
+          onChallenge={(challengeName) => {
+            setConfig(prev => ({ ...prev, playerOName: challengeName, mode: 'pvp', isOnline: false }));
+            setScreen('setup');
+          }}
+          onSendInvite={handleSendInvite}
+        />
       )}
     </>
   );

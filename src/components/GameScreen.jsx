@@ -59,7 +59,7 @@ function checkWinLogic(boardState, winningConditions) {
   return null;
 }
 
-export default function GameScreen({ config, onBack }) {
+export default function GameScreen({ config, userName, onBack }) {
   const [board, setBoard] = useState(Array(config.gridSize * config.gridSize).fill(''));
   const [currentPlayer, setCurrentPlayer] = useState('x');
   const [gameActive, setGameActive] = useState(true);
@@ -77,6 +77,12 @@ export default function GameScreen({ config, onBack }) {
   const [globalVerifiedX, setGlobalVerifiedX] = useState(false);
   const [globalVerifiedO, setGlobalVerifiedO] = useState(false);
   
+  const [channel, setChannel] = useState(null);
+  const [incomingMove, setIncomingMove] = useState(null);
+  const [incomingRestart, setIncomingRestart] = useState(false);
+
+  const mySymbol = config.isOnline ? (userName === config.playerXName ? 'x' : 'o') : null;
+
   const timerRef = useRef(null);
   const winningConditions = useRef(generateWinningConditions(config.gridSize));
 
@@ -92,9 +98,13 @@ export default function GameScreen({ config, onBack }) {
       let dO = { mmr: 1000, wins: 0, losses: 0, draws: 0, name: baseNameO };
 
       // 1. Try to load from local storage first (Friendly Leaderboard)
-      const localProfiles = JSON.parse(localStorage.getItem('localProfiles') || '{}');
-      if (localProfiles[baseNameX]) dX = localProfiles[baseNameX];
-      if (localProfiles[baseNameO]) dO = localProfiles[baseNameO];
+      try {
+        const localProfiles = JSON.parse(localStorage.getItem('localProfiles') || '{}');
+        if (localProfiles[baseNameX]) dX = localProfiles[baseNameX];
+        if (localProfiles[baseNameO]) dO = localProfiles[baseNameO];
+      } catch (e) {
+        console.error("Local storage error:", e);
+      }
 
       // 2. Try Supabase (Global Leaderboard) if available and tag provided
       const fetchGlobalProfile = async (fullName) => {
@@ -135,6 +145,37 @@ export default function GameScreen({ config, onBack }) {
     loadProfiles();
   }, [config]);
 
+  // Online Multiplayer Sync Setup
+  useEffect(() => {
+    if (!config.isOnline || !config.roomId) return;
+    
+    const chan = supabase.channel(`game-${config.roomId}`);
+    chan.on('broadcast', { event: 'move' }, (payload) => {
+      setIncomingMove(payload.payload);
+    });
+    chan.on('broadcast', { event: 'restart' }, () => {
+      setIncomingRestart(true);
+    });
+    chan.subscribe();
+    
+    setChannel(chan);
+    return () => { supabase.removeChannel(chan); };
+  }, [config.isOnline, config.roomId]);
+
+  useEffect(() => {
+    if (incomingMove) {
+      makeMove(incomingMove.index, incomingMove.player, true);
+      setIncomingMove(null);
+    }
+  }, [incomingMove]);
+
+  useEffect(() => {
+    if (incomingRestart) {
+       restartGame(true);
+       setIncomingRestart(false);
+    }
+  }, [incomingRestart]);
+
   const updateProfiles = async (winnerFullName, loserFullName, isDraw) => {
     const getBaseName = (fullName) => fullName.split('#')[0].trim();
     
@@ -166,10 +207,14 @@ export default function GameScreen({ config, onBack }) {
     else { setScoreO(w); setScoreX(l); }
 
     // Save to Friendly Local Leaderboard
-    const localProfiles = JSON.parse(localStorage.getItem('localProfiles') || '{}');
-    localProfiles[w.name] = w;
-    localProfiles[l.name] = l;
-    localStorage.setItem('localProfiles', JSON.stringify(localProfiles));
+    try {
+      const localProfiles = JSON.parse(localStorage.getItem('localProfiles') || '{}');
+      localProfiles[w.name] = w;
+      localProfiles[l.name] = l;
+      localStorage.setItem('localProfiles', JSON.stringify(localProfiles));
+    } catch (e) {
+      console.error("Local storage error:", e);
+    }
 
     // Attempt to save to Global Leaderboard only if globally verified!
     const promises = [];
@@ -218,10 +263,15 @@ export default function GameScreen({ config, onBack }) {
 
   const handleCellClick = (index) => {
     if (board[index] !== '' || !gameActive) return;
-    makeMove(index, currentPlayer);
+    if (config.isOnline && currentPlayer !== mySymbol) return; // Not your turn
+    makeMove(index, currentPlayer, false);
   };
 
-  const makeMove = (index, player) => {
+  const makeMove = (index, player, fromRemote = false) => {
+    if (config.isOnline && !fromRemote && channel) {
+       channel.send({ type: 'broadcast', event: 'move', payload: { index, player } });
+    }
+    
     playPopSound(player);
     const newBoard = [...board];
     newBoard[index] = player;
@@ -259,7 +309,11 @@ export default function GameScreen({ config, onBack }) {
     }
   }, [currentPlayer, gameActive, board, config.mode]);
 
-  const restartGame = () => {
+  const restartGame = (fromRemote = false) => {
+    if (config.isOnline && !fromRemote && channel) {
+       channel.send({ type: 'broadcast', event: 'restart', payload: {} });
+    }
+
     setBoard(Array(config.gridSize * config.gridSize).fill(''));
     setCurrentPlayer('x');
     setGameActive(true);
@@ -277,7 +331,7 @@ export default function GameScreen({ config, onBack }) {
             {gameActive ? `${(currentPlayer === 'x' ? config.playerXName : config.playerOName).split('#')[0]}'s Turn` : 'Game Over'}
           </h2>
         </div>
-        <button className="btn-secondary btn-icon" onClick={restartGame}>↻</button>
+        <button className="btn-secondary btn-icon" onClick={() => restartGame(false)}>↻</button>
       </div>
 
       {config.blitzMode && (
@@ -322,7 +376,7 @@ export default function GameScreen({ config, onBack }) {
         <div className="result-modal">
           <div className="result-content glass-panel" style={{ width: '90%', maxWidth: '400px' }}>
             <h2 id="result-message">{result.message}</h2>
-            <button className="btn-primary" onClick={restartGame}>Play Again</button>
+            <button className="btn-primary" onClick={() => restartGame(false)}>Play Again</button>
             <button className="btn-secondary" style={{ width: '100%', marginTop: '10px' }} onClick={onBack}>Home</button>
           </div>
         </div>

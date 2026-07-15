@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import ReactCountryFlag from 'react-country-flag';
 import { getCountryCode } from '../lib/countries';
 
-export default function FriendsScreen({ currentUserName, onClose, onViewProfile }) {
+export default function FriendsScreen({ currentUserName, onClose, onViewProfile, onChallenge, onSendInvite }) {
   const [requests, setRequests] = useState([]);
   const [friends, setFriends] = useState([]);
   const [profileMap, setProfileMap] = useState({});
@@ -140,7 +140,8 @@ export default function FriendsScreen({ currentUserName, onClose, onViewProfile 
                                       <span style={{ fontWeight: 'bold' }}>{friendName}</span>
                                   </div>
                                   <div style={{ display: 'flex', gap: '5px' }}>
-                                      <button style={{ padding: '5px 10px', backgroundColor: 'var(--color-x)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }} onClick={() => alert('Challenges coming soon!')}>⚔️ Play</button>
+                                      <button style={{ padding: '5px 10px', backgroundColor: 'var(--color-x)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }} onClick={() => onSendInvite(friendName)}>Invite Online</button>
+                                      <button style={{ padding: '5px 10px', backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }} onClick={() => onChallenge(friendName)}>Local</button>
                                       <button style={{ padding: '5px 10px', backgroundColor: 'rgba(244, 67, 54, 0.2)', color: '#F44336', border: '1px solid #F44336', borderRadius: '4px', cursor: 'pointer' }} onClick={() => removeFriend(f.id)}>Remove</button>
                                   </div>
                               </div>

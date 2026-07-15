@@ -21,7 +21,7 @@ function getRank(mmr) {
     return '🥉 Bronze 3';
 }
 
-export default function ProfileScreen({ playerName, currentUserName, currentUserEmail, onClose, onChallenge }) {
+export default function ProfileScreen({ playerName, currentUserName, currentUserEmail, onClose, onChallenge, onSendInvite }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [friendship, setFriendship] = useState(null);
@@ -170,16 +170,28 @@ export default function ProfileScreen({ playerName, currentUserName, currentUser
                       <button className="btn-secondary" style={{ flex: 1, margin: 0, opacity: 0.7 }} disabled>Pending</button>
                   )}
                   {(!friendship || friendship.status === 'accepted') && (
-                      <button 
-                          className="btn-secondary" 
-                          style={{ flex: 1, margin: 0, borderColor: 'var(--color-x)', color: 'var(--color-x)' }} 
-                          onClick={() => {
-                              const fullName = profile ? (profile.name + (profile.player_tag || '')) : playerName;
-                              if (onChallenge) onChallenge(fullName);
-                          }}
-                      >
-                          Let's Play
-                      </button>
+                      <>
+                          <button 
+                              className="btn-secondary" 
+                              style={{ flex: 1, margin: 0, borderColor: 'var(--color-x)', color: 'var(--color-x)' }} 
+                              onClick={() => {
+                                  const fullName = profile ? (profile.name + (profile.player_tag || '')) : playerName;
+                                  if (onSendInvite) onSendInvite(fullName);
+                              }}
+                          >
+                              Invite Online
+                          </button>
+                          <button 
+                              className="btn-secondary" 
+                              style={{ flex: 1, margin: 0 }} 
+                              onClick={() => {
+                                  const fullName = profile ? (profile.name + (profile.player_tag || '')) : playerName;
+                                  if (onChallenge) onChallenge(fullName);
+                              }}
+                          >
+                              Local Play
+                          </button>
+                      </>
                   )}
               </div>
             )}
