@@ -35,13 +35,30 @@ export default function SetupScreen({
         <div style={{ display: 'flex', gap: '5px' }}>
           <input 
             type="text" 
-            placeholder="Search Name or Name#Tag"
+            placeholder="Search Player Tag (e.g. #4233)"
             value={searchQuery} 
             onChange={e => setSearchQuery(e.target.value)}
             style={{ flex: 1, margin: 0 }}
-            onKeyDown={e => { if (e.key === 'Enter' && searchQuery.trim()) onViewProfile(searchQuery.trim()); }}
+            onKeyDown={e => { 
+                if (e.key === 'Enter' && searchQuery.trim()) {
+                    if (!searchQuery.startsWith('#')) {
+                        alert("Please enter the Player Tag starting with # (e.g. #4233)");
+                        return;
+                    }
+                    onViewProfile(searchQuery.trim()); 
+                }
+            }}
           />
-          <button className="btn-secondary" style={{ padding: '0 15px', fontSize: '1.2rem', margin: 0 }} onClick={() => { if(searchQuery.trim()) onViewProfile(searchQuery.trim()); }}>🔍</button>
+          <button className="btn-secondary" style={{ padding: '0 15px', fontSize: '1.2rem', margin: 0 }} onClick={() => { 
+              const query = searchQuery.trim();
+              if(query) {
+                  if (!query.startsWith('#')) {
+                      alert("Please enter the Player Tag starting with # (e.g. #4233)");
+                      return;
+                  }
+                  onViewProfile(query); 
+              }
+          }}>🔍</button>
         </div>
       </div>
 
@@ -50,7 +67,7 @@ export default function SetupScreen({
         <div className="select-wrapper">
           <select value={config.mode} onChange={e => setConfig({...config, mode: e.target.value})}>
             <option value="pvp">Player vs Player</option>
-            <option value="pve">Player vs AI</option>
+            <option value="pve" disabled={config.playerOName && config.playerOName.includes('#')}>Player vs AI</option>
           </select>
         </div>
       </div>
@@ -100,12 +117,19 @@ export default function SetupScreen({
           <div style={{ display: 'flex', gap: '5px' }}>
             <input 
               type="text" 
-              placeholder="Enter Name or Name#Tag for Ranked"
+              placeholder="Enter Name or #Tag"
               value={config.playerOName} 
               onChange={e => setConfig({...config, playerOName: e.target.value})}
               style={{ flex: 1, margin: 0 }}
             />
-            <button className="btn-secondary" style={{ padding: '0 15px', fontSize: '1.2rem', margin: 0 }} onClick={() => onViewProfile(config.playerOName)}>👤</button>
+            <button className="btn-secondary" style={{ padding: '0 15px', fontSize: '1.2rem', margin: 0 }} onClick={() => {
+                const pName = config.playerOName.trim();
+                if (pName && !pName.startsWith('#') && pName !== 'Player O') {
+                    alert("Please enter the Player Tag starting with # to view an online profile (e.g. #4233)");
+                    return;
+                }
+                onViewProfile(config.playerOName)
+            }}>👤</button>
           </div>
         </div>
       )}

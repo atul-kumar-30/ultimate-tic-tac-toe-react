@@ -6,14 +6,17 @@ A beautifully modern, fully-featured, and highly competitive Tic-Tac-Toe web app
 
 - **🌐 Global Leaderboards & Local Play:** Play casually against a friend on your local machine using the **Friendly Local Leaderboard** (which securely saves to your browser's local storage), or log in to sync your MMR with the **Global Supabase Database**!
 - **⚡ Real-Time Online Multiplayer:** Challenge friends across the internet! Send live game invites and play matches perfectly synced in real-time using Supabase Broadcast channels.
-- **👥 Friends System & Unique Tags:** Every player gets a unique `#Tag` (like `Player#1234`). Use the search bar to find friends, view their profiles, send friend requests, and manage your friends list!
+- **👥 Tabbed Friends System:** Manage your social network using a sleek tabbed interface separating your active friends from pending requests.
+- **#️⃣ Clash of Clans Style Search:** Every player gets a unique 4-digit `#Tag` (like `#1234`). Use the search bar to find players globally using just their Tag for quick, exact matching!
+- **🎮 Pass & Play Mode:** Seamlessly play offline multiplayer on the same device. The Pass & Play flow sets up the match and routes you to the Main Menu so you can customize rules (Grid Size, Blitz) before starting.
 - **📊 Player Profiles & Privacy:** View all-time career stats (Wins, Losses, Draws, Win Rate) and join dates for any player. Your own profile securely hides private info (like your email address) from public view!
-- **⚔️ Quick Match (Let's Play):** Instantly challenge any player directly from the Leaderboard using the "Let's Play" shortcut to seamlessly set up a local match against their official stats.
+- **🧭 Dynamic Navigation UI:** The interface remembers your history. If you view a profile from the Leaderboard, the back button intelligently routes you back to the Leaderboard. Smooth, gamified "Main Menu" flow!
 - **🏆 Ranked MMR System:** Everyone starts at 1000 RP (Bronze III) and can climb the competitive ladder all the way up to Terminator (2200+ RP).
 - **🤖 Advanced AI Engine:** Play PvE against multiple difficulty levels, including an "Impossible" AI powered by the Minimax algorithm.
 - **⚡ Blitz Mode:** Only have 5 seconds to make a move. Think fast or automatically lose the game!
 - **📏 Dynamic Grids:** Play on standard 3x3, or challenge yourself to match 4-in-a-row on expanded 4x4 and 5x5 grids.
-- **🎨 Premium UI:** Custom glassmorphism design, vibrant gradients, fluid animations, and a sleek dark mode interface.
+- **🔊 Audio Engine:** Enjoy satisfying synthetic pop sounds when placing pieces, and dynamic musical arpeggios for Victories and Draws powered entirely by the Web Audio API.
+- **🎨 Premium UI:** Custom glassmorphism design, vibrant gradients, fluid animations, rock-solid layout anchoring, and a sleek dark mode interface.
 
 ---
 
@@ -38,8 +41,9 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 ```
 
 ### Database Setup
-To support the Real-Time Game Invites system, you must run the following SQL snippet in your Supabase SQL Editor:
+To support the Real-Time Game Invites and Match History system, you must run the following SQL snippet in your Supabase SQL Editor:
 ```sql
+-- Game Invites Table
 create table public.game_invites (
   id uuid default gen_random_uuid() primary key,
   sender text not null,
@@ -48,9 +52,21 @@ create table public.game_invites (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Allow anyone to insert/read/update invites
 alter table public.game_invites enable row level security;
 create policy "Enable all for all users" on public.game_invites for all using (true) with check (true);
+
+-- Match History Table
+create table public.matches (
+  id uuid default gen_random_uuid() primary key,
+  player_x text not null,
+  player_o text not null,
+  winner text,
+  grid_size integer,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.matches enable row level security;
+create policy "Enable all for all users" on public.matches for all using (true) with check (true);
 ```
 
 ### Running the App

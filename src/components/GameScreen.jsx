@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { playPopSound } from '../lib/audio';
+import { playPopSound, playVictorySound, playDrawSound } from '../lib/audio';
 
 const BLITZ_TIME = 5000;
 
@@ -228,6 +228,26 @@ export default function GameScreen({ config, userName, onBack }) {
     if (promises.length > 0) {
         Promise.allSettled(promises);
     }
+
+    // Log match history
+    const matchData = {
+      player_x: config.playerXName,
+      player_o: config.playerOName,
+      winner: isDraw ? 'Draw' : winnerFullName,
+      grid_size: config.gridSize,
+      created_at: new Date().toISOString()
+    };
+
+    if (globalVerifiedX || globalVerifiedO || config.isOnline) {
+       supabase.from('matches').insert([matchData]).then(({ error }) => {
+           if(error) console.error("Match log error:", error);
+       });
+    } else {
+       const localMatches = JSON.parse(localStorage.getItem('localMatches') || '[]');
+       localMatches.unshift(matchData);
+       if(localMatches.length > 20) localMatches.pop(); // Keep last 20
+       localStorage.setItem('localMatches', JSON.stringify(localMatches));
+    }
   };
 
   const startTimer = useCallback(() => {
@@ -254,6 +274,7 @@ export default function GameScreen({ config, userName, onBack }) {
 
   const handleTimeOut = () => {
     setGameActive(false);
+    playVictorySound();
     const winner = currentPlayer === 'x' ? 'o' : 'x';
     const winnerName = winner === 'x' ? config.playerXName : config.playerOName;
     const loserName = winner === 'x' ? config.playerOName : config.playerXName;
@@ -283,9 +304,11 @@ export default function GameScreen({ config, userName, onBack }) {
       setGameActive(false);
       clearInterval(timerRef.current);
       if (winResult.winner === 'draw') {
+        playDrawSound();
         updateProfiles(config.playerXName, config.playerOName, true);
         setResult({ winner: 'draw', message: "It's a Draw!" });
       } else {
+        playVictorySound();
         setWinningCells(winResult.condition);
         const winnerName = winResult.winner === 'x' ? config.playerXName : config.playerOName;
         const loserName = winResult.winner === 'x' ? config.playerOName : config.playerXName;

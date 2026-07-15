@@ -124,7 +124,7 @@ export default function LeaderboardScreen({ onClose, onViewProfile }) {
           });
         })()}
       </div>
-      <button className="btn-primary" onClick={onClose} style={{ marginTop: '20px' }}>Close</button>
+      <button className="btn-primary" onClick={onClose} style={{ marginTop: '20px', width: '100%' }}>⬅ Back to Main Menu</button>
     </div>
   );
 }

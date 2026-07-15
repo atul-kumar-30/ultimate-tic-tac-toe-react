@@ -21,10 +21,12 @@ function getRank(mmr) {
     return '🥉 Bronze 3';
 }
 
-export default function ProfileScreen({ playerName, currentUserName, currentUserEmail, onClose, onChallenge, onSendInvite }) {
+export default function ProfileScreen({ playerName, currentUserName, currentUserEmail, onClose, onChallenge, onSendInvite, previousScreen }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [friendship, setFriendship] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [matchHistory, setMatchHistory] = useState([]);
 
   useEffect(() => {
     async function load() {
@@ -47,23 +49,46 @@ export default function ProfileScreen({ playerName, currentUserName, currentUser
 
       // 2. Try fetching from Global Supabase Leaderboard
       let query = supabase.from('profiles').select('*');
-      if (searchTag) {
+      if (searchTag && !searchName) {
+          query = query.eq('player_tag', searchTag);
+      } else if (searchTag) {
           query = query.eq('name', searchName).eq('player_tag', searchTag);
       } else {
           query = query.eq('name', searchName);
       }
       
-      const { data, error } = await query.single();
+      const { data, error } = await query.limit(1).maybeSingle();
 
       // Fetch friendship status if viewing someone else
       if (data && currentUserName && searchName !== currentUserName) {
          const { data: fData } = await supabase.from('friendships')
             .select('*')
-            .or(`and(sender.eq.${currentUserName},receiver.eq.${data.name}),and(sender.eq.${data.name},receiver.eq.${currentUserName})`)
+            .or(`and(requester.eq.${currentUserName},receiver.eq.${data.name + data.player_tag}),and(requester.eq.${data.name + data.player_tag},receiver.eq.${currentUserName})`)
             .maybeSingle();
-         if(fData) setFriendship(fData);
+         setFriendship(fData);
       }
-      
+
+      // Fetch match history (local + global)
+      let matches = [];
+      try {
+          const localMatches = JSON.parse(localStorage.getItem('localMatches') || '[]');
+          const fullName = searchName + (searchTag || '');
+          matches = localMatches.filter(m => m.player_x === fullName || m.player_o === fullName);
+      } catch (e) {}
+
+      if (data) {
+          const fullName = data.name + data.player_tag;
+          const { data: globalMatches } = await supabase.from('matches')
+              .select('*')
+              .or(`player_x.eq.${fullName},player_o.eq.${fullName}`)
+              .order('created_at', { ascending: false })
+              .limit(10);
+          if (globalMatches) {
+              matches = [...matches, ...globalMatches].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10);
+          }
+      }
+      setMatchHistory(matches);
+
       // If we got valid global data, take whichever has higher MMR (to ensure we don't accidentally downgrade if local is out of sync)
       if (data) {
         if (!localProfilesRaw[searchName] || data.mmr > localProfilesRaw[searchName].mmr) {
@@ -101,7 +126,7 @@ export default function ProfileScreen({ playerName, currentUserName, currentUser
   };
 
   return (
-    <div className="glass-panel" style={{ width: '400px', maxWidth: '95vw', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <div className="glass-panel" style={{ width: '400px', maxWidth: '95vw', minHeight: '520px', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
       <div style={{ fontSize: '3rem', marginBottom: '10px' }}>
           {profile?.country ? (
@@ -129,10 +154,25 @@ export default function ProfileScreen({ playerName, currentUserName, currentUser
               Joined: {new Date(profile.created_at).toLocaleDateString()}
           </div>
       )}
+
+      {profile && (
+          <div style={{ display: 'flex', width: '100%', marginBottom: '15px', gap: '5px' }}>
+              <button 
+                  className={activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'} 
+                  style={{ flex: 1, margin: 0, padding: '8px' }} 
+                  onClick={() => setActiveTab('overview')}
+              >Overview</button>
+              <button 
+                  className={activeTab === 'matches' ? 'btn-primary' : 'btn-secondary'} 
+                  style={{ flex: 1, margin: 0, padding: '8px' }} 
+                  onClick={() => setActiveTab('matches')}
+              >History</button>
+          </div>
+      )}
       
       {loading ? (
         <div style={{ margin: '20px', color: 'var(--text-secondary)' }}>Loading stats...</div>
-      ) : profile ? (
+      ) : profile && activeTab === 'overview' ? (
         <div style={{ width: '100%', marginTop: '20px' }}>
             <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '10px', textAlign: 'center', marginBottom: '20px' }}>
                 <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Current Rank</div>
@@ -196,11 +236,40 @@ export default function ProfileScreen({ playerName, currentUserName, currentUser
               </div>
             )}
         </div>
+      ) : profile && activeTab === 'matches' ? (
+        <div style={{ width: '100%', marginTop: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+            {matchHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>No recent matches found.</div>
+            ) : (
+                matchHistory.map((match, i) => {
+                    const fullName = profile.name + (profile.player_tag || '');
+                    const isWin = match.winner === fullName;
+                    const isDraw = match.winner === 'Draw';
+                    const opponent = match.player_x === fullName ? match.player_o : match.player_x;
+                    const resultColor = isWin ? '#4CAF50' : isDraw ? '#FFC107' : '#F44336';
+                    return (
+                        <div key={i} style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '0.9rem', color: '#fff' }}>vs {opponent.split('#')[0]}</div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                    {new Date(match.created_at).toLocaleDateString()} • {match.grid_size}x{match.grid_size}
+                                </div>
+                            </div>
+                            <div style={{ fontWeight: 'bold', color: resultColor }}>
+                                {isDraw ? 'DRAW' : isWin ? 'WIN' : 'LOSS'}
+                            </div>
+                        </div>
+                    );
+                })
+            )}
+        </div>
       ) : (
           <div style={{ margin: '20px', color: 'var(--text-secondary)' }}>No stats found.</div>
       )}
 
-      <button className="btn-primary" onClick={onClose} style={{ marginTop: '20px', width: '100%' }}>Close</button>
+      <button className="btn-primary" onClick={onClose} style={{ marginTop: '20px', width: '100%' }}>
+          ⬅ Back to {previousScreen === 'friends' ? 'Friends List' : previousScreen === 'leaderboard' ? 'Leaderboard' : 'Main Menu'}
+      </button>
     </div>
   );
 }
