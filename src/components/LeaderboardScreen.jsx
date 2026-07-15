@@ -86,13 +86,13 @@ export default function LeaderboardScreen({ onClose, onViewProfile }) {
                 <div style={{ width: '25px', fontSize: '0.9rem', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold', textAlign: 'right', paddingRight: '5px' }}>{index + 1}.</div>
                 <div className="lb-rank">{getRank(p.mmr).split(' ')[0]}</div>
                 <div className="lb-name">
-                  {p.name}
-                  {p.player_tag && <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>{p.player_tag}</span>}
                   {p.country && (
-                      <span style={{ marginLeft: '6px' }} title={p.country}>
+                      <span style={{ marginRight: '6px' }} title={p.country}>
                           {code ? <ReactCountryFlag countryCode={code} svg style={{ width: '1.2em', height: '1.2em', borderRadius: '2px' }} /> : <span style={{ fontSize: '0.9rem' }}>{p.country}</span>}
                       </span>
                   )}
+                  {p.name}
+                  {p.player_tag && <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>{p.player_tag}</span>}
                   {' '}
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     ({p.wins}W - {p.losses}L)

@@ -6,11 +6,11 @@ A beautifully modern, fully-featured, and highly competitive Tic-Tac-Toe web app
 
 - **🌐 Global Leaderboards & Local Play:** Play casually against a friend on your local machine using the **Friendly Local Leaderboard** (which securely saves to your browser's local storage), or log in to sync your MMR with the **Global Supabase Database**!
 - **⚡ Real-Time Online Multiplayer:** Challenge friends across the internet! Send live game invites and play matches perfectly synced in real-time using Supabase Broadcast channels.
-- **👥 Tabbed Friends System:** Manage your social network using a sleek tabbed interface separating your active friends from pending requests.
+- **👥 Tabbed Friends System:** Manage your social network using a sleek tabbed interface separating your active friends from pending requests. Easily identify players globally with beautifully integrated **Country Flags** across the Friends List and Leaderboard!
 - **#️⃣ Clash of Clans Style Search:** Every player gets a unique 4-digit `#Tag` (like `#1234`). Use the search bar to find players globally using just their Tag for quick, exact matching!
 - **🎮 Pass & Play Mode:** Seamlessly play offline multiplayer on the same device. The Pass & Play flow sets up the match and routes you to the Main Menu so you can customize rules (Grid Size, Blitz) before starting.
-- **📊 Player Profiles & Privacy:** View all-time career stats (Wins, Losses, Draws, Win Rate) and join dates for any player. Your own profile securely hides private info (like your email address) from public view!
-- **🧭 Dynamic Navigation UI:** The interface remembers your history. If you view a profile from the Leaderboard, the back button intelligently routes you back to the Leaderboard. Smooth, gamified "Main Menu" flow!
+- **📊 Player Profiles & Privacy:** View all-time career stats (Wins, Losses, Draws, Win Rate) and join dates for any player. Check out their recent **Match History** in the dedicated tab. Your own profile securely hides private info (like your email address) from public view!
+- **🧭 Dynamic Navigation UI:** The interface remembers your history. If you view a profile from the Leaderboard, the back button intelligently routes you back to the Leaderboard. Navigating deep into a profile's history lets you seamlessly pop back to the overview tab without losing your place! Smooth, gamified "Main Menu" flow!
 - **🏆 Ranked MMR System:** Everyone starts at 1000 RP (Bronze III) and can climb the competitive ladder all the way up to Terminator (2200+ RP).
 - **🤖 Advanced AI Engine:** Play PvE against multiple difficulty levels, including an "Impossible" AI powered by the Minimax algorithm.
 - **⚡ Blitz Mode:** Only have 5 seconds to make a move. Think fast or automatically lose the game!

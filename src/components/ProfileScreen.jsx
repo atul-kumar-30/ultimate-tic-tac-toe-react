@@ -267,8 +267,14 @@ export default function ProfileScreen({ playerName, currentUserName, currentUser
           <div style={{ margin: '20px', color: 'var(--text-secondary)' }}>No stats found.</div>
       )}
 
-      <button className="btn-primary" onClick={onClose} style={{ marginTop: '20px', width: '100%' }}>
-          ⬅ Back to {previousScreen === 'friends' ? 'Friends List' : previousScreen === 'leaderboard' ? 'Leaderboard' : 'Main Menu'}
+      <button 
+          className="btn-primary" 
+          onClick={activeTab === 'matches' ? () => setActiveTab('overview') : onClose} 
+          style={{ marginTop: '20px', width: '100%' }}
+      >
+          {activeTab === 'matches' 
+              ? '⬅ Back to Overview' 
+              : `⬅ Back to ${previousScreen === 'friends' ? 'Friends List' : previousScreen === 'leaderboard' ? 'Leaderboard' : 'Main Menu'}`}
       </button>
     </div>
   );

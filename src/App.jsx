@@ -12,6 +12,7 @@ import './index.css';
 function App() {
   const [session, setSession] = useState(null);
   const [screen, setScreen] = useState('auth'); // 'auth', 'setup', 'game', 'leaderboard', 'profile', 'friends'
+  const [isInitializing, setIsInitializing] = useState(true);
   const [activeInvite, setActiveInvite] = useState(null);
   const [viewingProfile, setViewingProfile] = useState(null);
   const [config, setConfig] = useState({
@@ -28,9 +29,14 @@ function App() {
   const [previousScreen, setPreviousScreen] = useState('setup');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      handleAuthSuccess(session?.user);
-    });
+    async function initAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await handleAuthSuccess(session.user);
+      }
+      setIsInitializing(false);
+    }
+    initAuth();
   }, []);
 
   useEffect(() => {
@@ -185,7 +191,13 @@ function App() {
     <>
       <div className="bg-animated"></div>
 
-      {activeInvite && (
+      {isInitializing ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', flexDirection: 'column', zIndex: 100 }}>
+            <h1 className="game-title" style={{ fontSize: '3rem', opacity: 0.8 }}>Loading...</h1>
+        </div>
+      ) : (
+        <>
+          {activeInvite && (
         <div style={{
           position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
           background: 'var(--glass-bg)', padding: '20px', borderRadius: '15px',
@@ -272,6 +284,8 @@ function App() {
           }}
           onSendInvite={handleSendInvite}
         />
+      )}
+        </>
       )}
     </>
   );
