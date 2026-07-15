@@ -69,6 +69,8 @@ alter table public.matches enable row level security;
 create policy "Enable all for all users" on public.matches for all using (true) with check (true);
 ```
 
+> **Note on Security & Architecture:** The Row Level Security (RLS) policies in this demo are intentionally left fully open (`using (true) with check (true)`) to prioritize a smooth, real-time sync experience. Because this application tracks players by their custom display names and `#Tags` rather than their Supabase Auth UUIDs, writing strict RLS policies would require complex sub-queries. If this were scaled for a production environment, the database schema would be refactored to use `auth.uid()` directly as foreign keys, allowing the RLS policies to be fully locked down.
+
 ### Running the App
 To start the local development server:
 ```bash

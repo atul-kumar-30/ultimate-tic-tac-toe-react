@@ -59,6 +59,51 @@ function checkWinLogic(boardState, winningConditions) {
   return null;
 }
 
+function getBestMove(boardState, winningConditions, isMaximizing, depth = 0, maxDepth = 10, alpha = -Infinity, beta = Infinity) {
+  const winResult = checkWinLogic(boardState, winningConditions);
+  if (winResult) {
+    if (winResult.winner === 'o') return { score: 10 - depth };
+    if (winResult.winner === 'x') return { score: depth - 10 };
+    if (winResult.winner === 'draw') return { score: 0 };
+  }
+
+  let available = [];
+  for (let i = 0; i < boardState.length; i++) {
+    if (boardState[i] === '') available.push(i);
+  }
+  
+  if (depth >= maxDepth || available.length === 0) return { score: 0 }; 
+
+  let bestMove = null;
+  let bestScore = isMaximizing ? -Infinity : Infinity;
+
+  for (let i = 0; i < available.length; i++) {
+    let move = available[i];
+    boardState[move] = isMaximizing ? 'o' : 'x';
+    
+    let result = getBestMove(boardState, winningConditions, !isMaximizing, depth + 1, maxDepth, alpha, beta);
+    
+    boardState[move] = '';
+    
+    if (isMaximizing) {
+      if (result.score > bestScore) {
+        bestScore = result.score;
+        bestMove = move;
+      }
+      alpha = Math.max(alpha, bestScore);
+    } else {
+      if (result.score < bestScore) {
+        bestScore = result.score;
+        bestMove = move;
+      }
+      beta = Math.min(beta, bestScore);
+    }
+    if (beta <= alpha) break;
+  }
+
+  return { score: bestScore, index: bestMove };
+}
+
 export default function GameScreen({ config, userName, onBack }) {
   const [board, setBoard] = useState(Array(config.gridSize * config.gridSize).fill(''));
   const [currentPlayer, setCurrentPlayer] = useState('x');
@@ -325,12 +370,28 @@ export default function GameScreen({ config, userName, onBack }) {
       const timeout = setTimeout(() => {
         let available = board.map((val, idx) => val === '' ? idx : null).filter(val => val !== null);
         if (available.length > 0) {
-          makeMove(available[Math.floor(Math.random() * available.length)], 'o');
+          let chosenIndex;
+          let randomThreshold = 0;
+          if (config.difficulty === 'easy') randomThreshold = 1;
+          else if (config.difficulty === 'medium') randomThreshold = 0.5;
+          else if (config.difficulty === 'hard') randomThreshold = 0.2;
+          else if (config.difficulty === 'impossible') randomThreshold = 0;
+
+          if (Math.random() < randomThreshold) {
+            chosenIndex = available[Math.floor(Math.random() * available.length)];
+          } else {
+            // For larger grids, limit depth to prevent browser freeze
+            const maxDepth = board.length > 9 ? 4 : 10;
+            const tempBoard = [...board];
+            const bestMoveResult = getBestMove(tempBoard, winningConditions.current, true, 0, maxDepth);
+            chosenIndex = bestMoveResult.index !== null ? bestMoveResult.index : available[Math.floor(Math.random() * available.length)];
+          }
+          makeMove(chosenIndex, 'o');
         }
       }, 500);
       return () => clearTimeout(timeout);
     }
-  }, [currentPlayer, gameActive, board, config.mode]);
+  }, [currentPlayer, gameActive, board, config.mode, config.difficulty]);
 
   const restartGame = (fromRemote = false) => {
     if (config.isOnline && !fromRemote && channel) {
