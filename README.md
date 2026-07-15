@@ -5,6 +5,7 @@ A beautifully modern, fully-featured, and highly competitive Tic-Tac-Toe web app
 ## ✨ Features
 
 - **🌐 Global Leaderboards & Local Play:** Play casually against a friend on your local machine using the **Friendly Local Leaderboard** (which securely saves to your browser's local storage), or log in to sync your MMR with the **Global Supabase Database**!
+- **⚡ Real-Time Online Multiplayer:** Challenge friends across the internet! Send live game invites and play matches perfectly synced in real-time using Supabase Broadcast channels.
 - **👥 Friends System & Unique Tags:** Every player gets a unique `#Tag` (like `Player#1234`). Use the search bar to find friends, view their profiles, send friend requests, and manage your friends list!
 - **📊 Player Profiles & Privacy:** View all-time career stats (Wins, Losses, Draws, Win Rate) and join dates for any player. Your own profile securely hides private info (like your email address) from public view!
 - **⚔️ Quick Match (Let's Play):** Instantly challenge any player directly from the Leaderboard using the "Let's Play" shortcut to seamlessly set up a local match against their official stats.
@@ -34,6 +35,22 @@ Create a `.env` file in the root directory and add your Supabase credentials:
 ```env
 VITE_SUPABASE_URL=your_supabase_project_url_here
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+```
+
+### Database Setup
+To support the Real-Time Game Invites system, you must run the following SQL snippet in your Supabase SQL Editor:
+```sql
+create table public.game_invites (
+  id uuid default gen_random_uuid() primary key,
+  sender text not null,
+  receiver text not null,
+  status text default 'pending',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Allow anyone to insert/read/update invites
+alter table public.game_invites enable row level security;
+create policy "Enable all for all users" on public.game_invites for all using (true) with check (true);
 ```
 
 ### Running the App
